@@ -1,10 +1,30 @@
-﻿import os
+import os
 import sqlite3
 from typing import Dict, Any, Tuple
+
 import pandas as pd
 
-# SQLite 数据库路径
+from app.iotdb_client import IoTDBClient
+
+# SQLite 数据库路径（演示用）
 DB_PATH = os.path.join("data", "metrics.db")
+_iotdb_client = None
+
+
+def _use_iotdb() -> bool:
+    """根据环境变量决定是否启用 IoTDB。"""
+    if os.getenv("USE_IOTDB", "").lower() in ("1", "true", "yes"):
+        return True
+    # 只要配置了 IOTDB_HOST，也视为启用
+    return bool(os.getenv("IOTDB_HOST"))
+
+
+def _get_iotdb_client() -> IoTDBClient:
+    """延迟初始化 IoTDBClient，避免启动时依赖失败。"""
+    global _iotdb_client
+    if _iotdb_client is None:
+        _iotdb_client = IoTDBClient()
+    return _iotdb_client
 
 
 def _conn() -> sqlite3.Connection:
@@ -14,6 +34,11 @@ def _conn() -> sqlite3.Connection:
 
 def query_metric_timeseries(project: str, metric: str, days: int = 30) -> pd.DataFrame:
     """查询指定指标的最近 N 天时间序列。"""
+    if _use_iotdb():
+        # 优先走 IoTDB
+        return _get_iotdb_client().query_metric_timeseries(project, metric, days)
+
+    # 回退到 SQLite 演示库
     sql = """
     SELECT day, value FROM metrics
     WHERE project=? AND metric=?

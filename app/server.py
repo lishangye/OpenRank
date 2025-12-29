@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any
 
 from app.qwen_client import QwenClient
+from app.dataease_client import DataEaseClient
 from app.rag import SimpleRAG
 from app.tools_sql import query_metric_summary, simple_anomaly_hint
 
@@ -12,6 +13,7 @@ app = FastAPI(title="OpenSODA 开源治理AI助手 MVP")
 qwen = QwenClient(model="qwen-plus")
 rag = SimpleRAG(docs_dir="docs")
 rag.build()
+dataease = DataEaseClient()
 
 DEFAULT_PROJECT = "apache/iotdb"
 
@@ -122,3 +124,9 @@ def chat(req: ChatReq) -> ChatResp:
     answer = qwen.chat(messages)
 
     return ChatResp(answer=answer, used_tools=used)
+
+
+@app.get("/dataease/health")
+def dataease_health() -> Dict[str, Any]:
+    """DataEase 可用性探测（不影响现有功能）。"""
+    return dataease.health_check()
