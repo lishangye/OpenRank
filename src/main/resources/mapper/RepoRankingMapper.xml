@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openrank.openrank.mapper.RepoRankingMapper">
+
+    <resultMap id="RepoRankingMap" type="com.openrank.openrank.model.RepoRanking">
+        <id column="id" property="id"/>
+        <result column="owner" property="owner"/>
+        <result column="repo" property="repo"/>
+        <result column="display_name" property="displayName"/>
+        <result column="period_type" property="periodType"/>
+        <result column="period" property="period"/>
+        <result column="rank" property="rank"/>
+        <result column="openrank" property="openrank"/>
+        <result column="stars" property="stars"/>
+        <result column="delta_stars" property="deltaStars"/>
+        <result column="attention" property="attention"/>
+        <result column="activity" property="activity"/>
+        <result column="description" property="description"/>
+        <result column="tags" property="tags"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findLatestPeriod" resultType="string">
+        select max(period) from repo_ranking where period_type = #{periodType}
+    </select>
+
+    <select id="listByPeriod" resultMap="RepoRankingMap">
+        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`, `rank`, `openrank`, `stars`, `delta_stars`, `attention`, `activity`, `description`, `tags`, `updated_at`
+        from repo_ranking
+        where period_type = #{periodType} and period = #{period}
+        order by `rank` asc
+        limit #{limit}
+    </select>
+
+    <select id="listByPeriodOrdered" resultMap="RepoRankingMap">
+        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`, `rank`, `openrank`, `stars`, `delta_stars`, `attention`, `activity`, `description`, `tags`, `updated_at`
+        from repo_ranking
+        where period_type = #{periodType} and period = #{period}
+        <choose>
+            <when test="orderColumn == 'openrank'">order by `openrank` desc</when>
+            <when test="orderColumn == 'stars'">order by `stars` desc</when>
+            <when test="orderColumn == 'delta_stars'">order by `delta_stars` desc</when>
+            <when test="orderColumn == 'attention'">order by `attention` desc</when>
+            <when test="orderColumn == 'activity'">order by `activity` desc</when>
+            <otherwise>order by `rank` asc</otherwise>
+        </choose>
+        limit #{limit}
+    </select>
+
+</mapper>

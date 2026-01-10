@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openrank.openrank.mapper.FavoriteMapper">
+
+    <resultMap id="FavoriteResultMap" type="com.openrank.openrank.model.Favorite">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="repo" property="repo"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="FavoriteResultMap">
+        SELECT id, user_id, repo
+        FROM user_favorite
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insertFavorite" parameterType="com.openrank.openrank.model.Favorite" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_favorite (user_id, repo)
+        VALUES (#{userId}, #{repo})
+    </insert>
+
+    <delete id="deleteFavorite">
+        DELETE FROM user_favorite WHERE user_id = #{userId} AND repo = #{repo}
+    </delete>
+
+    <select id="findOne" resultMap="FavoriteResultMap">
+        SELECT id, user_id, repo FROM user_favorite WHERE user_id = #{userId} AND repo = #{repo} LIMIT 1
+    </select>
+
+</mapper>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repo 详情 · OpenRank</title>
+    <style>
+        body { margin:0; font-family: "Inter", system-ui,-apple-system,sans-serif; background:#0a0f1d; color:#e2e8f0; }
+        .hero { position: relative; padding: 36px 22px 26px; background: radial-gradient(circle at 20% 20%, rgba(79,209,197,0.16), transparent 35%), rgba(255,255,255,0.02); border-bottom:1px solid rgba(255,255,255,0.08); }
+        .hero h1 { margin:0 0 10px; font-size:28px; }
+        .hero p { margin:0; color:#94a3b8; }
+        .badge { padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.03); color:#cbd5e1; margin-right:8px; display:inline-flex; align-items:center; gap:6px; }
+        .content { max-width:1200px; margin:0 auto; }
+        .section { padding:20px 22px; border-bottom:1px solid rgba(255,255,255,0.05); }
+        .section h3 { margin:0 0 10px; }
+        .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap:12px; }
+        .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:16px; }
+        .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+        .tag { padding:6px 8px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#94a3b8; font-size:12px; }
+        .metric { padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); }
+        .heart-btn { width:42px; height:42px; display:inline-flex; align-items:center; justify-content:center; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.02); color:#f97316; cursor:pointer; }
+        .heart-btn.active { border-color:rgba(79,209,197,0.4); background:rgba(79,209,197,0.08); }
+        a { color:#4fd1c5; text-decoration:none; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="hero">
+    <div class="content">
+        <div class="row" style="justify-content:space-between; align-items:center;">
+            <div>
+                <h1 id="title">加载中...</h1>
+                <p id="repo-path">...</p>
+                <div class="row" id="badge-row"></div>
+            </div>
+            <div class="row">
+                <a href="/" class="badge">首页</a>
+                <a href="/favorites.html" class="badge">我的关注</a>
+                <button id="fav-btn" class="heart-btn">❤</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="content">
+    <div class="section">
+        <h3>指标速览</h3>
+        <div class="grid">
+            <div class="card">
+                <div class="metric" id="metric-openrank">OpenRank: --</div>
+                <div class="metric" id="metric-stars" style="margin-top:6px;">Stars(当前): --</div>
+                <div class="metric" id="metric-trend" style="margin-top:6px;">趋势: --</div>
+            </div>
+            <div class="card">
+                <div><strong>任务/提示</strong></div>
+                <div id="task-list" style="margin-top:8px; color:#cbd5e1;">加载中...</div>
+            </div>
+        </div>
+    </div>
+    <div class="section">
+        <h3>指标可视化</h3>
+        <div class="grid">
+            <div class="card">
+                <div><strong>OpenRank 趋势（最近 12 个月）</strong></div>
+                <canvas id="chart-openrank" height="180"></canvas>
+                <div id="chart-openrank-hint" style="color:#94a3b8; font-size:13px; margin-top:6px;"></div>
+            </div>
+            <div class="card">
+                <div><strong>Stars 增长（最近 12 个月）</strong></div>
+                <canvas id="chart-stars" height="180"></canvas>
+                <div id="chart-stars-hint" style="color:#94a3b8; font-size:13px; margin-top:6px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="section">
+        <h3>仓库描述</h3>
+        <div id="description" style="color:#cbd5e1;">...</div>
+    </div>
+</div>
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const repoKey = urlParams.get('repo');
+    const titleEl = document.getElementById('title');
+    const repoPathEl = document.getElementById('repo-path');
+    const favBtn = document.getElementById('fav-btn');
+    const badgeRow = document.getElementById('badge-row');
+    const metricOpenrank = document.getElementById('metric-openrank');
+    const metricStars = document.getElementById('metric-stars');
+    const metricTrend = document.getElementById('metric-trend');
+    const taskList = document.getElementById('task-list');
+    const descriptionEl = document.getElementById('description');
+    const chartOpenrankEl = document.getElementById('chart-openrank');
+    const chartStarsEl = document.getElementById('chart-stars');
+    const chartOpenrankHint = document.getElementById('chart-openrank-hint');
+    const chartStarsHint = document.getElementById('chart-stars-hint');
+    let authToken = localStorage.getItem('openrank_token') || '';
+    let favorites = new Set();
+    let project = null;
+
+    if (!repoKey) {
+        titleEl.textContent = '缺少 repo 参数';
+    }
+
+    function renderProject() {
+        if (!project) {
+            descriptionEl.textContent = '未找到该仓库';
+            titleEl.textContent = repoKey || '仓库';
+            repoPathEl.textContent = repoKey || '';
+            return;
+        }
+        const isFav = favorites.has(project.repo);
+        favBtn.classList.toggle('active', isFav);
+        favBtn.title = isFav ? '取消关注' : '关注';
+        titleEl.textContent = project.name || project.repo;
+        repoPathEl.textContent = `${project.repo} · ${project.status || ''}`;
+        badgeRow.innerHTML = `
+            <span class="badge">${project.priority || 'P?'}</span>
+            ${(project.tags || []).map(t => `<span class="badge">${t}</span>`).join('')}
+        `;
+        metricOpenrank.textContent = `OpenRank：${Number(project.openrank || 0).toFixed(1)}`;
+        metricStars.textContent = `Stars(当前)：${Number(project.stars || 0).toLocaleString()}`;
+        metricTrend.textContent = `趋势：${project.trend || '--'}`;
+        taskList.innerHTML = (project.tasks || []).length ? project.tasks.map(t => `· ${t}`).join('<br>') : '暂无';
+        descriptionEl.textContent = project.description || '暂无描述';
+    }
+
+    async function fetchProjects() {
+        // 优先从数据库发现接口获取当前仓库
+        try {
+            const resp = await fetch('/api/projects/discovery?limit=200&periodType=MONTH');
+            if (resp.ok) {
+                const list = await resp.json();
+                project = list.find(p => p.repo === repoKey);
+            }
+        } catch (e) { /* ignore */ }
+        // 补充周榜
+        if (!project) {
+            try {
+                const resp = await fetch('/api/projects/discovery?limit=200&periodType=WEEK');
+                if (resp.ok) {
+                    const list = await resp.json();
+                    project = list.find(p => p.repo === repoKey);
+                }
+            } catch (e) { /* ignore */ }
+        }
+        // 回退到通用项目列表
+        if (!project) {
+            try {
+                const resp = await fetch('/api/projects');
+                if (resp.ok) {
+                    const list = await resp.json();
+                    project = list.find(p => p.repo === repoKey);
+                }
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    async function fetchFavorites() {
+        if (!authToken) {
+            favorites = new Set();
+            return;
+        }
+        try {
+            const resp = await fetch('/api/favorites', { headers: { 'X-Token': authToken } });
+            if (resp.ok) {
+                const data = await resp.json();
+                favorites = new Set(data.map(d => d.repo));
+            }
+        } catch (e) {
+            favorites = new Set();
+        }
+    }
+
+    function renderChart(ctx, labels, data, color, hintEl) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: '',
+                    data,
+                    borderColor: color,
+                    backgroundColor: color + '33',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+        if (hintEl) hintEl.textContent = '数据来源：OpenDigger';
+    }
+
+    async function fetchRawMetric(metric) {
+        const url = `https://oss.x-lab.info/open_digger/github/${repoKey}/${metric}.json`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`raw ${metric} ${resp.status}`);
+        return resp.json();
+    }
+
+    function buildSeriesFromRaw(obj) {
+        const keys = Object.keys(obj).filter(k => /^\d{4}-\d{2}$/.test(k)).sort();
+        if (!keys.length) return { labels: [], values: [] };
+        const last12 = keys.slice(-12);
+        return { labels: last12, values: last12.map(k => Number(obj[k] || 0)) };
+    }
+
+    async function renderCharts() {
+        try {
+            const resp = await fetch(`/api/projects/metrics?repo=${encodeURIComponent(repoKey)}`);
+            if (!resp.ok) {
+                throw new Error(`指标接口 ${resp.status}`);
+            }
+            const data = await resp.json();
+            let labels = data.labels || [];
+            let openrankSeries = (data.openrank || []).map(v => Number(v || 0));
+            let starsSeries = (data.stars || []).map(v => Number(v || 0));
+
+            const allZero = (arr) => arr.length && arr.every(v => v === 0);
+            if (!labels.length || allZero(openrankSeries) || allZero(starsSeries)) {
+                const [rawOpenrank, rawStars] = await Promise.all([fetchRawMetric('openrank'), fetchRawMetric('stars')]);
+                const o = buildSeriesFromRaw(rawOpenrank);
+                const s = buildSeriesFromRaw(rawStars);
+                labels = o.labels;
+                openrankSeries = o.values;
+                starsSeries = s.values;
+            }
+
+            renderChart(chartOpenrankEl, labels, openrankSeries, '#4fd1c5', chartOpenrankHint);
+            renderChart(chartStarsEl, labels, starsSeries, '#f97316', chartStarsHint);
+        } catch (e) {
+            if (chartOpenrankHint) chartOpenrankHint.textContent = '指标加载失败，请稍后再试';
+            if (chartStarsHint) chartStarsHint.textContent = '指标加载失败，请稍后再试';
+        }
+    }
+
+    async function toggleFavorite() {
+        if (!authToken) {
+            alert('请先登录再关注');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/favorites/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Token': authToken },
+                body: JSON.stringify({ repo: repoKey })
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                alert(data.message || '操作失败');
+                return;
+            }
+            if (favorites.has(repoKey)) {
+                favorites.delete(repoKey);
+            } else {
+                favorites.add(repoKey);
+            }
+            renderProject();
+        } catch (e) {
+            alert('网络异常，请稍后再试');
+        }
+    }
+
+    favBtn.addEventListener('click', toggleFavorite);
+
+    (async function init() {
+        await fetchProjects();
+        await fetchFavorites();
+        renderProject();
+        renderCharts();
+    })();
+</script>
+</body>
+</html>
