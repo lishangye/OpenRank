@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 · OpenRank</title>
+    <style>
+        body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:#0b1324; color:#e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+        .card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); padding:24px; border-radius:14px; width:320px; box-shadow:0 20px 60px rgba(0,0,0,0.45); }
+        h1 { margin:0 0 14px; font-size:22px; }
+        label { display:block; margin:10px 0 6px; color:#cbd5e1; }
+        input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#0f1a2c; color:#e2e8f0; }
+        button { width:100%; margin-top:14px; padding:12px; border:none; border-radius:10px; background:linear-gradient(135deg, #4fd1c5, #22c55e); color:#04100b; font-weight:700; cursor:pointer; }
+        .link { margin-top:10px; display:block; text-align:center; color:#8b97ad; text-decoration:none; }
+        .msg { margin-top:10px; color:#f97316; min-height:18px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>注册</h1>
+    <label>用户名</label>
+    <input id="username" type="text" autocomplete="username">
+    <label>邮箱</label>
+    <input id="email" type="email" autocomplete="email">
+    <label>密码</label>
+    <input id="password" type="password" autocomplete="new-password">
+    <button id="register">注册</button>
+    <div class="msg" id="msg"></div>
+    <a class="link" href="/login.html">已有账号？去登录</a>
+    <a class="link" href="/">返回首页</a>
+</div>
+<script>
+    const msg = document.getElementById('msg');
+    document.getElementById('register').addEventListener('click', async () => {
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!username || !password) {
+            msg.textContent = '用户名和密码必填';
+            return;
+        }
+        const resp = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, email })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.token) {
+            msg.textContent = data.message || '注册失败';
+            return;
+        }
+        localStorage.setItem('openrank_token', data.token);
+        localStorage.setItem('openrank_user', data.username || username);
+        window.location.href = '/';
+    });
+</script>
+</body>
+</html>
