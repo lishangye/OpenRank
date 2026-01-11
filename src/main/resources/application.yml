@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: openrank
+  datasource:
+    url: jdbc:mysql://localhost:3306/rankopen?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 118118
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: localhost
+    port: 6379
+    password: 118118
+    database: 0
+
+server:
+  port: 8083
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath*:mapper/*.xml
+
+logging:
+  level:
+    com:
+      openrank: INFO
+
+chat:
+  agent:
+    # Chat 代理接口地址，可按需修改（示例： http://localhost:8080/chat/c5ecd3f831252463 ）
+    endpoint: http://localhost:8080/chat/c5ecd3f831252463
+    # Agent 接口所需的 API Key
+    api-key: agent-5d8093b5d39501fe48af5fbdf7e1eb6c
+    # 获取会话 ID 的接口（GET），用于先打开会话
+    open-endpoint: http://localhost:8080/chat/api/open
+    # 聊天消息接口前缀（可选），例如 http://localhost:8080/chat/api/chat_message
+    chat-message-base: http://localhost:8080/chat/api/chat_message
+
+langchain4j:
+  chat-model:
+    # 使用通义千问（OpenAI 兼容模式）
+    provider: openai
+    model-name: qwen-plus
+    # 建议通过环境变量注入 DashScope 的 API Key
+    # api-key: sk-f0b61889e6f945f7a68447c7571b7914
+    api-key: asdf
+    # 通义千问 OpenAI 兼容的基地址
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+springdoc:
+  packages-to-scan: com.openrank.openrank.controller
+  paths-to-match: /api/**
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
