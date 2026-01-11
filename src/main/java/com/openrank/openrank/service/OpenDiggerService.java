@@ -131,6 +131,9 @@ public class OpenDiggerService {
     public Map<String, Object> metricSeries(String repoPath) {
         RepoConfig config = findConfig(repoPath);
         if (config == null) {
+            config = fallbackConfig(repoPath);
+        }
+        if (config == null) {
             log.warn("指标请求未知仓库: {}", repoPath);
             return Map.of("labels", List.of(), "openrank", List.of(), "stars", List.of(), "message", "未收录的仓库");
         }
@@ -152,6 +155,33 @@ public class OpenDiggerService {
             log.warn("拉取指标失败 {}: {}", repoPath, e.getMessage());
             return Map.of("labels", List.of(), "openrank", List.of(), "stars", List.of(), "message", "加载失败");
         }
+    }
+
+    /**
+     * 允许未预置的 repo 直接用 owner/repo 访问指标。
+     */
+    private RepoConfig fallbackConfig(String repoPath) {
+        if (repoPath == null || !repoPath.contains("/")) {
+            return null;
+        }
+        String[] parts = repoPath.split("/", 2);
+        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            return null;
+        }
+        String owner = parts[0].trim();
+        String repo = parts[1].trim();
+        log.info("指标请求使用动态仓库配置: {}", repoPath);
+        return new RepoConfig(
+                owner,
+                repo,
+                repoPath,
+                owner,
+                "动态仓库",
+                List.of(),
+                "production",
+                "P2",
+                List.of()
+        );
     }
 
     private ProjectView toProjectView(RepoConfig config) {
