@@ -5,27 +5,23 @@ import com.openrank.openrank.model.AuthResponse;
 import com.openrank.openrank.model.LoginRequest;
 import com.openrank.openrank.model.RegisterRequest;
 import com.openrank.openrank.model.User;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 public class AuthService {
 
     private final UserMapper userMapper;
-    private final StringRedisTemplate redisTemplate;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    private static final String SESSION_PREFIX = "session:";
-    private static final Duration SESSION_TTL = Duration.ofMinutes(30);
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenService jwtTokenService;
 
-    public AuthService(UserMapper userMapper, StringRedisTemplate redisTemplate) {
+    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtTokenService jwtTokenService) {
         this.userMapper = userMapper;
-        this.redisTemplate = redisTemplate;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtTokenService = jwtTokenService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -62,25 +58,19 @@ public class AuthService {
     }
 
     private String issueToken(Long userId) {
-        String token = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(SESSION_PREFIX + token, String.valueOf(userId), SESSION_TTL);
-        return token;
+        return jwtTokenService.issueToken(userId);
     }
 
     public Long resolveUserId(String token) {
-        if (!StringUtils.hasText(token)) {
-            return null;
-        }
-        String value = redisTemplate.opsForValue().get(SESSION_PREFIX + token);
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        redisTemplate.expire(SESSION_PREFIX + token, SESSION_TTL);
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
+        return jwtTokenService.parseUserId(token);
+    }
+
+    public User findById(Long id) {
+        return id == null ? null : userMapper.findById(id);
+    }
+
+    public User findByUsername(String username) {
+        return username == null ? null : userMapper.findByUsername(username);
     }
 
     private void validateRegister(RegisterRequest request) {

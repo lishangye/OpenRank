@@ -13,3 +13,7 @@
 "items":ArrayList@41
 
 LinkedHashMap@125 size=80
+
+
+82	denoland	deno	denoland/deno	denoland		github,auto	production	P2		105783	2026-01-01	MONTH	2026-01-11 18:59:05
+11	apache	kafka	apache/kafka	Apache Kafka	分布式消息流平台	streaming,infra	production	P2	5100.5	25000	2026-W03	MONTH	2026-01-11 18:44:17

@@ -4,6 +4,12 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.openrank.openrank.mapper.RepoRankingMapper">
 
+    <cache type="com.openrank.openrank.config.cache.MybatisRedisCache"
+           eviction="LRU"
+           flushInterval="600000"
+           size="1024"
+           readOnly="false"/>
+
     <resultMap id="RepoRankingMap" type="com.openrank.openrank.model.RepoRanking">
         <id column="id" property="id"/>
         <result column="owner" property="owner"/>
@@ -23,29 +29,42 @@
     </resultMap>
 
     <select id="findLatestPeriod" resultType="string">
-        select max(period) from repo_ranking where period_type = #{periodType}
+        select max(period) from repo where period_type = #{periodType}
     </select>
 
     <select id="listByPeriod" resultMap="RepoRankingMap">
-        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`, `rank`, `openrank`, `stars`, `delta_stars`, `attention`, `activity`, `description`, `tags`, `updated_at`
-        from repo_ranking
+        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`,
+               null as `rank`, `openrank`, `stars`,
+               null as `delta_stars`, null as `attention`, null as `activity`,
+               `description`, `tags`, `updated_at`
+        from repo
         where period_type = #{periodType} and period = #{period}
-        order by `rank` asc
+        order by `openrank` desc
         limit #{limit}
     </select>
 
     <select id="listByPeriodOrdered" resultMap="RepoRankingMap">
-        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`, `rank`, `openrank`, `stars`, `delta_stars`, `attention`, `activity`, `description`, `tags`, `updated_at`
-        from repo_ranking
+        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`,
+               null as `rank`, `openrank`, `stars`,
+               null as `delta_stars`, null as `attention`, null as `activity`,
+               `description`, `tags`, `updated_at`
+        from repo
         where period_type = #{periodType} and period = #{period}
         <choose>
             <when test="orderColumn == 'openrank'">order by `openrank` desc</when>
             <when test="orderColumn == 'stars'">order by `stars` desc</when>
-            <when test="orderColumn == 'delta_stars'">order by `delta_stars` desc</when>
-            <when test="orderColumn == 'attention'">order by `attention` desc</when>
-            <when test="orderColumn == 'activity'">order by `activity` desc</when>
-            <otherwise>order by `rank` asc</otherwise>
+            <otherwise>order by `openrank` desc</otherwise>
         </choose>
+        limit #{limit}
+    </select>
+
+    <select id="listAll" resultMap="RepoRankingMap">
+        select `id`, `owner`, `repo`, `display_name`, `period_type`, `period`,
+               null as `rank`, `openrank`, `stars`,
+               null as `delta_stars`, null as `attention`, null as `activity`,
+               `description`, `tags`, `updated_at`
+        from repo
+        order by `openrank` desc, `stars` desc
         limit #{limit}
     </select>
 

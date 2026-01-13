@@ -73,27 +73,18 @@ public class ProjectController {
 
     @Operation(
             summary = "获取全部仓库",
-            description = "汇总数据库榜单（周/月）与预置列表，用于“全部仓库”展示。",
+            description = "直接从 repo 表汇总全部仓库数据，若为空回退到预置列表。",
             parameters = @Parameter(name = "limit", description = "数量上限，默认500，最大500"),
             responses = @ApiResponse(responseCode = "200", description = "全部仓库列表", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ProjectView.class))))
     )
     @GetMapping("/all")
     public List<ProjectView> all(@RequestParam(value = "limit", defaultValue = "500") int limit) {
         limit = Math.min(Math.max(limit, 1), 500);
-        java.util.LinkedHashMap<String, ProjectView> map = new java.util.LinkedHashMap<>();
-        try {
-            discoveryService.fromDbPublic("MONTH", "rank", limit).forEach(p -> map.put(p.repo(), p));
-        } catch (Exception ignored) { }
-        try {
-            discoveryService.fromDbPublic("WEEK", "rank", limit).forEach(p -> map.putIfAbsent(p.repo(), p));
-        } catch (Exception ignored) { }
-        try {
-            openDiggerService.fetchProjects().forEach(p -> map.putIfAbsent(p.repo(), p));
-        } catch (Exception ignored) { }
-        // 如果仍为空，至少返回预置列表避免前端为空
-        if (map.isEmpty()) {
+        // 简化逻辑：直接取 repo 表数据（通过 discoveryService 封装）
+        List<ProjectView> all = discoveryService.allRepos(limit);
+        if (all == null || all.isEmpty()) {
             return openDiggerService.fetchProjects();
         }
-        return new java.util.ArrayList<>(map.values());
+        return all;
     }
 }

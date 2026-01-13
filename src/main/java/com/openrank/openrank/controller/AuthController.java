@@ -3,6 +3,7 @@ package com.openrank.openrank.controller;
 import com.openrank.openrank.model.AuthResponse;
 import com.openrank.openrank.model.LoginRequest;
 import com.openrank.openrank.model.RegisterRequest;
+import com.openrank.openrank.model.User;
 import com.openrank.openrank.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -10,10 +11,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -62,5 +67,33 @@ public class AuthController {
             return ResponseEntity.status(401).body(response);
         }
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "获取当前登录用户",
+            description = "从 Authorization Bearer 或 X-Auth-Token 读取 token，返回用户 id 和用户名。",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "已登录", content = @Content(schema = @Schema(implementation = User.class))),
+                    @ApiResponse(responseCode = "401", description = "未登录或会话失效")
+            }
+    )
+    @GetMapping("/me")
+    public ResponseEntity<?> me(@RequestHeader(value = "Authorization", required = false) String authorization,
+                                @RequestHeader(value = "X-Auth-Token", required = false) String xToken) {
+        String token = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        } else if (xToken != null && !xToken.isBlank()) {
+            token = xToken;
+        }
+        Long uid = authService.resolveUserId(token);
+        if (uid == null) {
+            return ResponseEntity.status(401).body(AuthResponse.of("未登录或会话失效", null, null));
+        }
+        User user = authService.findById(uid);
+        return ResponseEntity.ok(Map.of(
+                "id", uid,
+                "username", user == null ? null : user.getUsername()
+        ));
     }
 }

@@ -1,13 +1,10 @@
 package com.openrank.openrank.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openrank.openrank.model.ProjectView;
 import com.openrank.openrank.model.RepoRanking;
 import com.openrank.openrank.mapper.RepoRankingMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -29,22 +26,16 @@ import java.util.Optional;
 public class DiscoveryService {
 
     private static final Logger log = LoggerFactory.getLogger(DiscoveryService.class);
-    private static final String GITHUB_CACHE_KEY = "github:top:%s";
-    private static final String METRIC_CACHE_KEY = "github:metric:%s:%s";
     private static final String GH_SEARCH_URL = "https://api.github.com/search/repositories?q=stars:%3E5000&sort=stars&order=desc&per_page=%d";
-    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
     private static final DateTimeFormatter YM = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8))
             .build();
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final StringRedisTemplate redisTemplate;
     private final RepoRankingMapper repoRankingMapper;
 
-    public DiscoveryService(StringRedisTemplate redisTemplate, RepoRankingMapper repoRankingMapper) {
-        this.redisTemplate = redisTemplate;
+    public DiscoveryService(RepoRankingMapper repoRankingMapper) {
         this.repoRankingMapper = repoRankingMapper;
     }
 
@@ -60,24 +51,7 @@ public class DiscoveryService {
      */
     public List<ProjectView> topGithubWithMetrics(int limit) {
         limit = Math.min(Math.max(limit, 1), 50);
-        String cacheKey = GITHUB_CACHE_KEY.formatted(limit);
-        try {
-            String cached = redisTemplate.opsForValue().get(cacheKey);
-            if (cached != null && !cached.isBlank()) {
-                return objectMapper.readValue(cached, new TypeReference<>() {});
-            }
-        } catch (Exception e) {
-            log.warn("读取 GitHub 榜单缓存失败: {}", e.getMessage());
-        }
-
         List<ProjectView> list = fetchGithubTop(limit);
-        if (!list.isEmpty()) {
-            try {
-                redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(list), CACHE_TTL);
-            } catch (Exception e) {
-                log.warn("写入 GitHub 榜单缓存失败: {}", e.getMessage());
-            }
-        }
         return list;
     }
 
@@ -108,7 +82,7 @@ public class DiscoveryService {
                 log.warn("GitHub 搜索请求失败 HTTP {}", resp.statusCode());
                 return result;
             }
-            Map<String, Object> json = objectMapper.readValue(resp.body(), new TypeReference<>() {});
+            Map<String, Object> json = new com.fasterxml.jackson.databind.ObjectMapper().readValue(resp.body(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
             List<Map<String, Object>> items = (List<Map<String, Object>>) json.getOrDefault("items", List.of());
             for (int i = 0; i < items.size() && i < limit; i++) {
                 Map<String, Object> item = items.get(i);
@@ -162,16 +136,6 @@ public class DiscoveryService {
         if (owner == null || repo == null || owner.isBlank() || repo.isBlank()) {
             throw new IllegalArgumentException("仓库路径为空");
         }
-        String key = METRIC_CACHE_KEY.formatted(owner + "/" + repo, metric);
-        try {
-            String cached = redisTemplate.opsForValue().get(key);
-            if (cached != null && !cached.isBlank()) {
-                return objectMapper.readValue(cached, new TypeReference<>() {});
-            }
-        } catch (Exception e) {
-            log.warn("读取仓库指标缓存失败 {} {}: {}", owner + "/" + repo, metric, e.getMessage());
-        }
-
         String url = String.format("https://oss.x-lab.info/open_digger/github/%s/%s/%s.json", owner, repo, metric);
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("User-Agent", "openrank-discovery")
@@ -182,13 +146,7 @@ public class DiscoveryService {
         if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
             throw new RuntimeException("OpenDigger HTTP " + resp.statusCode());
         }
-        Map<String, Double> map = objectMapper.readValue(resp.body(), new TypeReference<>() {});
-        try {
-            redisTemplate.opsForValue().set(key, resp.body(), CACHE_TTL);
-        } catch (Exception e) {
-            log.warn("写入仓库指标缓存失败 {} {}: {}", owner + "/" + repo, metric, e.getMessage());
-        }
-        return map;
+        return new com.fasterxml.jackson.databind.ObjectMapper().readValue(resp.body(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
     }
 
     private double toDouble(Object val) {
@@ -257,5 +215,43 @@ public class DiscoveryService {
             case "activity" -> "activity";
             default -> "rank";
         };
+    }
+
+    /**
+     * 直接获取 repo 表全部仓库（按 openrank 降序），如果 openrank 为空则其次按 stars。
+     */
+    public List<ProjectView> allRepos(int limit) {
+        limit = Math.min(Math.max(limit, 1), 500);
+        try {
+            List<RepoRanking> rows = repoRankingMapper.listAll(limit);
+            if (rows == null || rows.isEmpty()) {
+                return List.of();
+            }
+            List<ProjectView> result = new ArrayList<>();
+            for (RepoRanking r : rows) {
+                String repoPath = r.getOwner() + "/" + r.getRepo();
+                List<String> tags = r.getTags() == null ? List.of() :
+                        java.util.Arrays.stream(r.getTags().split(","))
+                                .map(String::trim).filter(s -> !s.isEmpty()).toList();
+                result.add(new ProjectView(
+                        Optional.ofNullable(r.getDisplayName()).orElse(repoPath),
+                        repoPath,
+                        r.getOwner(),
+                        Optional.ofNullable(r.getPeriod()).orElse("-"),
+                        Optional.ofNullable(r.getStars()).orElse(0L),
+                        "DB 全量",
+                        tags,
+                        "production",
+                        "P2",
+                        Optional.ofNullable(r.getDescription()).orElse("来自 repo 表的数据"),
+                        List.of(),
+                        Optional.ofNullable(r.getOpenrank()).orElse(0.0)
+                ));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("从数据库读取 repo 表失败: {}", e.getMessage());
+            return List.of();
+        }
     }
 }

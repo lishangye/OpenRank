@@ -4,6 +4,12 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.openrank.openrank.mapper.RepoMapper">
 
+    <cache type="com.openrank.openrank.config.cache.MybatisRedisCache"
+           eviction="LRU"
+           flushInterval="600000"
+           size="1024"
+           readOnly="false"/>
+
     <resultMap id="RepoMap" type="com.openrank.openrank.model.Repo">
         <id column="id" property="id"/>
         <result column="owner" property="owner"/>
@@ -34,5 +40,21 @@
         where full_name = #{fullName}
         limit 1
     </select>
+
+    <insert id="upsert" parameterType="com.openrank.openrank.model.Repo">
+        INSERT INTO repo (owner, repo, full_name, display_name, description, tags, status, priority, openrank, stars, period, period_type)
+        VALUES (#{owner}, #{repo}, #{fullName}, #{displayName}, #{description}, #{tags}, #{status}, #{priority}, #{openrank}, #{stars}, #{period}, #{periodType})
+        ON DUPLICATE KEY UPDATE
+            display_name = VALUES(display_name),
+            description = VALUES(description),
+            tags = VALUES(tags),
+            status = VALUES(status),
+            priority = VALUES(priority),
+            openrank = VALUES(openrank),
+            stars = VALUES(stars),
+            period = VALUES(period),
+            period_type = VALUES(period_type),
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
 
 </mapper>
