@@ -24,4 +24,11 @@
         VALUES (#{username}, #{password}, #{email}, #{createdAt})
     </insert>
 
+    <select id="findById" resultMap="UserResultMap">
+        SELECT id, username, password, email, created_at
+        FROM user
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
 </mapper>

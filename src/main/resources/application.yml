@@ -12,6 +12,10 @@ spring:
     password: 118118
     database: 0
 
+jwt:
+  secret: change-me-please-change-me-please-change
+  ttl-minutes: 30
+
 server:
   port: 8083
 
@@ -48,10 +52,18 @@ langchain4j:
     # 通义千问 OpenAI 兼容的基地址
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
 
-springdoc:
+springdoc: 
   packages-to-scan: com.openrank.openrank.controller
   paths-to-match: /api/**
   api-docs:
     enabled: true
   swagger-ui:
     enabled: true
+
+github:
+  token: 
+  # 默认每小时同步一次（整点），可按需调整
+  sync-cron: "0 0 0 * * *"
+  stars-threshold: 5000
+  per-page: 50
+  max-pages: 2

@@ -19,4 +19,9 @@ public interface RepoRankingMapper {
                                           @Param("period") String period,
                                           @Param("orderColumn") String orderColumn,
                                           @Param("limit") int limit);
+
+    /**
+     * 直接从 repo 表获取全部仓库数据，按 OpenRank 降序返回。
+     */
+    List<RepoRanking> listAll(@Param("limit") int limit);
 }

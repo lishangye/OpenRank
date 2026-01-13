@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,20 +37,20 @@ public class FavoriteController {
 
     @Operation(
             summary = "获取收藏列表",
-            description = "根据 X-Token 获取当前用户收藏的仓库列表。",
-            parameters = @Parameter(name = "X-Token", description = "登录后颁发的 token", required = false),
+            description = "根据 Authorization Bearer / X-Auth-Token / X-Token 获取当前用户收藏的仓库列表。",
+            parameters = @Parameter(name = "Authorization", description = "Bearer <token>，或 X-Auth-Token/X-Token", required = false),
             responses = @ApiResponse(responseCode = "200", description = "收藏列表", content = @Content(array = @ArraySchema(schema = @Schema(implementation = Favorite.class))))
     )
     @GetMapping
-    public ResponseEntity<List<Favorite>> list(@RequestHeader(value = "X-Token", required = false) String token) {
-        List<Favorite> favorites = favoriteService.listByToken(token);
+    public ResponseEntity<List<Favorite>> list(HttpServletRequest request) {
+        List<Favorite> favorites = favoriteService.listByToken(resolveToken(request));
         return ResponseEntity.ok(favorites);
     }
 
     @Operation(
         summary = "添加收藏",
         description = "传入 repo（owner/repo），未登录或参数缺失返回 401。",
-        parameters = @Parameter(name = "X-Token", description = "登录后颁发的 token", required = false),
+        parameters = @Parameter(name = "Authorization", description = "Bearer <token>，或 X-Auth-Token/X-Token", required = false),
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "请求体：{ \"repo\": \"owner/repo\" }",
                 required = true,
@@ -62,9 +62,10 @@ public class FavoriteController {
         }
     )
     @PostMapping
-    public ResponseEntity<Map<String, String>> add(@RequestHeader(value = "X-Token", required = false) String token,
+    public ResponseEntity<Map<String, String>> add(HttpServletRequest request,
                                                    @RequestBody Map<String, String> body) {
         String repo = body.get("repo");
+        String token = resolveToken(request);
         boolean ok = favoriteService.addFavorite(token, repo);
         if (!ok) {
             return ResponseEntity.status(401).body(Map.of("message", "未登录或参数错误"));
@@ -75,7 +76,7 @@ public class FavoriteController {
     @Operation(
         summary = "取消收藏",
         description = "传入 repo（owner/repo），未登录或参数缺失返回 401。",
-        parameters = @Parameter(name = "X-Token", description = "登录后颁发的 token", required = false),
+        parameters = @Parameter(name = "Authorization", description = "Bearer <token>，或 X-Auth-Token/X-Token", required = false),
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "请求体：{ \"repo\": \"owner/repo\" }",
                 required = true,
@@ -87,9 +88,10 @@ public class FavoriteController {
         }
     )
     @DeleteMapping
-    public ResponseEntity<Map<String, String>> remove(@RequestHeader(value = "X-Token", required = false) String token,
+    public ResponseEntity<Map<String, String>> remove(HttpServletRequest request,
                                                       @RequestBody Map<String, String> body) {
         String repo = body.get("repo");
+        String token = resolveToken(request);
         boolean ok = favoriteService.removeFavorite(token, repo);
         if (!ok) {
             return ResponseEntity.status(401).body(Map.of("message", "未登录或参数错误"));
@@ -100,7 +102,7 @@ public class FavoriteController {
     @Operation(
         summary = "收藏状态切换",
         description = "已收藏则取消，未收藏则添加。",
-        parameters = @Parameter(name = "X-Token", description = "登录后颁发的 token", required = false),
+        parameters = @Parameter(name = "Authorization", description = "Bearer <token>，或 X-Auth-Token/X-Token", required = false),
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "请求体：{ \"repo\": \"owner/repo\" }",
                 required = true,
@@ -113,9 +115,10 @@ public class FavoriteController {
         }
     )
     @PostMapping("/toggle")
-    public ResponseEntity<Map<String, Object>> toggle(@RequestHeader(value = "X-Token", required = false) String token,
+    public ResponseEntity<Map<String, Object>> toggle(HttpServletRequest request,
                                                       @RequestBody Map<String, String> body) {
         String repo = body.get("repo");
+        String token = resolveToken(request);
         if (repo == null || repo.isBlank()) {
             log.warn("toggle favorite missing repo, token={}", shortToken(token));
             return ResponseEntity.badRequest().body(Map.of("message", "repo 不能为空"));
@@ -132,5 +135,21 @@ public class FavoriteController {
     private String shortToken(String token) {
         if (token == null) return "null";
         return token.length() > 8 ? token.substring(0, 8) + "..." : token;
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String bearer = request.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            return bearer.substring(7);
+        }
+        String authToken = request.getHeader("X-Auth-Token");
+        if (authToken != null && !authToken.isBlank()) {
+            return authToken;
+        }
+        String xToken = request.getHeader("X-Token");
+        if (xToken != null && !xToken.isBlank()) {
+            return xToken;
+        }
+        return null;
     }
 }
