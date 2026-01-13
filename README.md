@@ -66,6 +66,9 @@
 ## 环境变量与配置（建议）
 - 数据库：`SPRING_DATASOURCE_URL` / `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD`
 - Redis：`SPRING_REDIS_HOST` / `SPRING_REDIS_PORT` / `SPRING_REDIS_PASSWORD`
+- GitHub Token：`GITHUB_TOKEN`（用于定时同步 GitHub 热门仓库；仅从环境变量读取，配置文件留空占位）
+  - PowerShell（当次会话）：`$env:GITHUB_TOKEN="your_token"`
+  - PowerShell（持久化）：`setx GITHUB_TOKEN "your_token"`（重新打开终端生效）
 - LangChain4j：`DASHSCOPE_API_KEY`，`DASHSCOPE_BASE_URL`（可选），模型名默认 `qwen-plus`
 - Agent：`CHAT_AGENT_ENDPOINT` / `CHAT_AGENT_OPEN_ENDPOINT` / `CHAT_AGENT_CHAT_MESSAGE_BASE` / `CHAT_AGENT_API_KEY`
 
@@ -76,6 +79,9 @@
 java -jar target/openrank-0.0.1-SNAPSHOT.jar
 ```
 > 若出现 “class file version 61.0” 报错，请使用 JDK 17+。
+
+## 演示地址
+- 在线演示（已部署）：http://47.120.12.228:8083/
 
 ## 演示截图
 

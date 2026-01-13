@@ -11,6 +11,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -36,7 +37,7 @@ public class GithubTrendingJob {
 
     public GithubTrendingJob(RestTemplateBuilder builder,
                              GithubRepoImportService importService,
-                             @Value("${github.token:}") String token,
+                             @Value("${GITHUB_TOKEN:}") @Nullable String token,
                              @Value("${github.stars-threshold:5000}") int starsThreshold,
                              @Value("${github.per-page:50}") int perPage,
                              @Value("${github.max-pages:2}") int maxPages) {
@@ -54,7 +55,7 @@ public class GithubTrendingJob {
     @Scheduled(cron = "${github.sync-cron:0 0 * * * *}")
     public void fetchTrending() {
         if (token == null || token.isBlank()) {
-            log.warn("GitHub token 未配置，跳过同步");
+            log.warn("GitHub token 未配置（请设置环境变量 GITHUB_TOKEN），跳过同步");
             return;
         }
         log.info("开始同步 GitHub 热门仓库...");

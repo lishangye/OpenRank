@@ -61,7 +61,7 @@ springdoc:
     enabled: true
 
 github:
-  token: 
+  token: ${GITHUB_TOKEN:}
   # 默认每小时同步一次（整点），可按需调整
   sync-cron: "0 0 0 * * *"
   stars-threshold: 5000
