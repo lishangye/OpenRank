@@ -10,3 +10,4 @@ public interface AiAssistant {
     @SystemMessage("你是开源仓库助手，返回开源仓库的具体信息。")
     String chat(@UserMessage String message);
 }
+

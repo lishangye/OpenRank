@@ -83,6 +83,9 @@ java -jar target/openrank-0.0.1-SNAPSHOT.jar
 ## 演示地址
 - 在线演示（已部署）：http://47.120.12.228:8083/
 
+## Agent 问答
+- 已集成 maxkb 的 agent 开源仓库问答小助手，可基于仓库内容进行问答。
+
 ## 演示截图
 
 ![alt text](image.png)
